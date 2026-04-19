@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Turno Manager</title>
+<title>Turno Manager v7</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;font-size:13px;background:#f8f8f6;color:#1a1a1a}
@@ -106,6 +106,11 @@ table.tbl tr:last-child td{border-bottom:none}
 .ai-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .quick-btn{font-size:12px;padding:5px 12px;border:0.5px solid #ccc;border-radius:8px;cursor:pointer;background:#fff;color:#1a1a1a;font-family:inherit;white-space:nowrap}
 .quick-btn:hover{background:#f4f3ee}
+.rules-editor{width:100%;min-height:280px;resize:vertical;font-size:13px;line-height:1.6;font-family:inherit;padding:10px;border:0.5px solid #ccc;border-radius:8px;background:#fff}
+.rules-editor:focus{border-color:#888;outline:none}
+.note-day-tag{display:inline-block;font-size:9px;background:#eeedfe;color:#3c3489;border-radius:3px;padding:1px 4px;margin-top:1px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wg-head-clickable{cursor:pointer;border-radius:4px;padding:4px;transition:background .1s}
+.wg-head-clickable:hover{background:#f4f3ee}
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid #ccc;border-top-color:#1a1a1a;border-radius:50%;animation:spin .7s linear infinite;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -179,26 +184,6 @@ table.tbl tr:last-child td{border-bottom:none}
 </head>
 <body>
 <div class="app">
-<div id="sync-bar" style="display:flex;align-items:center;justify-content:space-between;padding:6px 2px;margin-bottom:4px;flex-wrap:wrap;gap:6px">
-  <span style="font-size:11px;font-weight:500;color:#1a1a1a">Turno Manager</span>
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-    <span id="sync-status" style="font-size:11px;color:#888"></span>
-    <button class="btn btn-sm" onclick="togglePanel('panel-settings')" style="font-size:11px">⚙ Impostazioni</button>
-  </div>
-</div>
-<div id="panel-settings" class="panel hidden" style="margin-bottom:1rem">
-  <div class="st">Impostazioni sync cloud</div>
-  <div class="fg"><label>JSONBin Master Key</label>
-    <input type="password" id="binkey-input" placeholder="$2a$10$..." style="font-family:monospace;font-size:12px">
-  </div>
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <button class="btn btn-primary btn-sm" onclick="saveBinKey()">Salva e connetti</button>
-    <button class="btn btn-sm" onclick="syncNow()">Sincronizza ora</button>
-    <button class="btn btn-sm" onclick="exportData()">Esporta JSON</button>
-    <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">Importa JSON</button>
-    <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
-  </div>
-</div>
 <div class="tabs">
   <button class="tab active" onclick="showTab('turni')">Turni settimana</button>
   <button class="tab" onclick="showTab('dipendenti')">Dipendenti</button>
@@ -221,7 +206,17 @@ table.tbl tr:last-child td{border-bottom:none}
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center">
     <button class="btn btn-sm" onclick="togglePanel('panel-event')">+ Evento settimana</button>
-    <span style="font-size:11px;color:#888">· Clicca sui giorni grigi per aprirli manualmente</span>
+    <span style="font-size:11px;color:#888">· Clicca sui giorni grigi per aprirli · Clicca sull'intestazione del giorno per aggiungere note</span>
+  </div>
+  <div id="panel-day-note" class="panel hidden">
+    <div class="st" id="panel-day-note-title">Note giorno</div>
+    <p style="font-size:11px;color:#888;margin-bottom:8px">Le note vengono lette dall'AI quando crea i turni (es. "David assente", "evento serale importante", "cucina chiusa").</p>
+    <div class="fg"><textarea id="day-note-text" rows="3" style="resize:none;width:100%" placeholder="es. David assente per visita medica, Angie disponibile solo mattina..."></textarea></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="saveDayNote()">Salva</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteDayNote()">Rimuovi</button>
+      <button class="btn btn-sm" onclick="togglePanel('panel-day-note')">Chiudi</button>
+    </div>
   </div>
   <div id="timeline-container"></div>
   <div id="panel-event" class="panel hidden">
@@ -357,6 +352,18 @@ table.tbl tr:last-child td{border-bottom:none}
 
 <!-- AI -->
 <div id="sec-ai" class="section">
+  <div class="card" style="margin-bottom:0.75rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="st" style="margin:0">Regole per la creazione turni</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="resetRules()">Ripristina default</button>
+        <button class="btn btn-primary btn-sm" onclick="saveRules()">Salva regole</button>
+      </div>
+    </div>
+    <p style="font-size:11px;color:#888;margin-bottom:8px">Queste regole vengono passate all'AI ogni volta che crea o modifica i turni. Modificale liberamente — ogni riga è una regola.</p>
+    <textarea class="rules-editor" id="rules-editor"></textarea>
+  </div>
+
   <div class="card">
     <div class="st" style="margin-bottom:10px">AI assistant</div>
     <div class="api-key-bar">
@@ -397,52 +404,62 @@ const DEFAULT_STAFF=[
   {id:'e_renee',  name:'Renee',  area:'Bar', tipo:'orario',  paga:9,    oreContratto:9, pref:'rot', libero:'si', ci:5},
 ];
 
-let S={employees:[],shifts:{},draftShifts:{},events:{},avail:{},aiHistory:[],draft:{},extraOpen:{}};
+let S={employees:[],shifts:{},draftShifts:{},events:{},avail:{},aiHistory:[],draft:{},extraOpen:{},dayNotes:{}};
+let activeDayNoteKey=null;
+
+const DEFAULT_RULES=`- Banco: minimo 2 persone per ogni giorno aperto (Bar, Cucina, Cassa o area vuota)
+- Sala: minimo 1 persona per ogni giorno aperto (area Sala)
+- Giorno libero garantito ogni settimana a: Angie, Sofia, Anna, Renee. David: ogni 2-3 settimane se possibile, decide il manager
+- Albert: rotazione libera, minimo 2-3 mattine a settimana (turno che inizia tra le 7 e le 12)
+- David: preferenza sera (inizia dalle 13 in poi). Giorno libero solo se il manager lo decide
+- Jessi: SEMPRE sera area Bar. Aprile-maggio solo weekend, da fine maggio 4gg/sett, luglio-20ago 5gg/sett. Orario standard 18:00-00:00, weekend può iniziare 16:00-17:00, eventi serali fino 01:00
+- Renee: rotazione libera, 4 giorni/sett da giugno, pagata a ore
+- Sara: NON è barista autonoma. Supporto a rotazione su cucina/reception/birre
+- Non assegnare turni nei giorni con disponibilità "no"
+- Turni spezzati possibili: prima fascia + seconda fascia (start2/end2)
+- Max 8-9 ore per turno salvo eccezioni
+- Se ci sono eventi serali: rinforzare la sera con personale aggiuntivo`;
+
+function getRules(){return localStorage.getItem('tm_rules')||DEFAULT_RULES;}
+function saveRules(){
+  localStorage.setItem('tm_rules',document.getElementById('rules-editor').value);
+  const btn=event.target;btn.textContent='Salvato ✓';setTimeout(()=>btn.textContent='Salva regole',1500);
+}
+function resetRules(){
+  if(!confirm('Ripristinare le regole di default?'))return;
+  localStorage.removeItem('tm_rules');
+  document.getElementById('rules-editor').value=DEFAULT_RULES;
+}
+
+function openDayNote(ds,dayLabel){
+  activeDayNoteKey=ds;
+  document.getElementById('panel-day-note-title').textContent='Note — '+dayLabel;
+  document.getElementById('day-note-text').value=S.dayNotes[ds]||'';
+  const p=document.getElementById('panel-day-note');
+  p.classList.remove('hidden');
+  p.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function saveDayNote(){
+  if(!activeDayNoteKey)return;
+  const txt=document.getElementById('day-note-text').value.trim();
+  if(txt)S.dayNotes[activeDayNoteKey]=txt;
+  else delete S.dayNotes[activeDayNoteKey];
+  save();togglePanel('panel-day-note');renderWeek();
+}
+function deleteDayNote(){
+  if(!activeDayNoteKey)return;
+  delete S.dayNotes[activeDayNoteKey];
+  save();togglePanel('panel-day-note');renderWeek();
+  activeDayNoteKey=null;
+}
 let curWeek=null, activeKey=null;
 
-const JSONBIN_ID='69dbf9b336566621a8a71b4b';
-const JSONBIN_URL='https://api.jsonbin.io/v3/b/'+JSONBIN_ID;
-let syncTimeout=null;
-function getBinKey(){return localStorage.getItem('tm_binkey')||'';}
-function setBinKey(k){localStorage.setItem('tm_binkey',k);}
-function showSyncStatus(msg,color){const el=document.getElementById('sync-status');if(el){el.textContent=msg;el.style.color=color||'#888';}}
-async function loadFromCloud(){
-  const key=getBinKey();if(!key)return false;
-  showSyncStatus('Caricamento...','#378add');
-  try{
-    const r=await fetch(JSONBIN_URL+'/latest',{headers:{'X-Master-Key':key,'X-Bin-Meta':'false'}});
-    if(!r.ok)throw new Error(r.status);
-    const data=await r.json();
-    if(data&&data.employees!==undefined){
-      S=data;
-      ['employees','shifts','draftShifts','events','avail','aiHistory','draft','extraOpen'].forEach(k=>{if(!S[k])S[k]=k==='employees'||k==='aiHistory'?[]:{}});
-      localStorage.setItem('tm_v7',JSON.stringify(S));
-      showSyncStatus('Sincronizzato ✓','#3b6d11');
-      setTimeout(()=>showSyncStatus('',''),3000);
-      return true;
-    }
-  }catch(e){showSyncStatus('Offline — dati locali','#854f0b');}
-  return false;
-}
-async function saveToCloud(){
-  const key=getBinKey();if(!key)return;
-  showSyncStatus('Salvataggio...','#888');
-  try{
-    const r=await fetch(JSONBIN_URL,{method:'PUT',headers:{'Content-Type':'application/json','X-Master-Key':key},body:JSON.stringify(S)});
-    if(!r.ok)throw new Error(r.status);
-    showSyncStatus('Salvato ✓','#3b6d11');
-    setTimeout(()=>showSyncStatus('',''),3000);
-  }catch(e){showSyncStatus('Errore salvataggio','#a32d2d');}
-}
-function save(){
-  localStorage.setItem('tm_v7',JSON.stringify(S));
-  clearTimeout(syncTimeout);
-  syncTimeout=setTimeout(saveToCloud,1500);
-}
-function loadLocal(){
+function load(){
   const d=localStorage.getItem('tm_v7');
   if(d){try{S=JSON.parse(d);}catch(e){}}
-  ['employees','shifts','draftShifts','events','avail','aiHistory','draft','extraOpen'].forEach(k=>{if(!S[k])S[k]=k==='employees'||k==='aiHistory'?[]:{}});
+  ['employees','shifts','draftShifts','events','avail','aiHistory','draft','extraOpen','dayNotes'].forEach(k=>{
+    if(!S[k])S[k]=k==='employees'||k==='aiHistory'?[]:{}
+  });
   if(!S.employees.length){
     for(const mk of ['tm_v7','tm_v6','tm_v5','tm_v4','tm_v3']){
       const old=localStorage.getItem(mk);
@@ -450,8 +467,14 @@ function loadLocal(){
     }
   }
   if(!S.employees.length){S.employees=DEFAULT_STAFF.map(e=>({...e}));}
+  // Inizializza editor regole
+  const re=document.getElementById('rules-editor');
+  if(re)re.value=getRules();
+  save();
+  const savedKey=localStorage.getItem('tm_apikey');
+  if(savedKey)document.getElementById('api-key-input').value=savedKey;
 }
-function load(){loadLocal();}
+function save(){localStorage.setItem('tm_v7',JSON.stringify(S));}
 function saveApiKey(){localStorage.setItem('tm_apikey',document.getElementById('api-key-input').value);}
 function getApiKey(){return document.getElementById('api-key-input').value.trim();}
 function getMonday(d){const dt=new Date(d);const w=dt.getDay();dt.setDate(dt.getDate()-w+(w===0?-6:1));dt.setHours(0,0,0,0);return dt;}
@@ -544,8 +567,14 @@ function renderWeek(){
   const g=document.getElementById('week-grid');g.innerHTML='';
   g.appendChild(mk('div','wg-head',''));
   dates.forEach((d,i)=>{
-    const h=mk('div','wg-head',`<div>${DAYS[i]}</div><div style="font-weight:500">${d.getDate()}</div>`);
+    const ds=fmt(d);
+    const hasNote=isOpen(d)&&S.dayNotes[ds];
+    const dow=d.getDay();
+    const dayName=DAYS[dow===0?6:dow-1];
+    const noteIcon=hasNote?'<div class="note-day-tag" title="'+S.dayNotes[ds].slice(0,60)+'">📝 nota</div>':'';
+    const h=mk('div',isOpen(d)?'wg-head wg-head-clickable':'wg-head',`<div>${DAYS[i]}</div><div style="font-weight:500">${d.getDate()}</div>${noteIcon}`);
     if(!isOpen(d))h.style.opacity='0.3';
+    else h.onclick=()=>openDayNote(ds,dayName+' '+d.getDate());
     g.appendChild(h);
   });
   if(!S.employees.length){
@@ -1155,29 +1184,43 @@ function buildSystemPrompt(){
     return `  ${emp.name} ${date}: ${v.type}`;
   }).filter(Boolean).join('\n');
   const ev=S.events[wk];
+  // Note giornaliere
+  const dayNotesStr=Object.entries(S.dayNotes||{})
+    .filter(([ds])=>openDays.some(d=>fmt(d)===ds))
+    .map(([ds,note])=>{
+      const d=new Date(ds+'T00:00:00');
+      const dow=d.getDay();
+      const dn=DAYS[dow===0?6:dow-1];
+      return `  ${dn} ${ds}: ${note}`;
+    }).join('\n');
   return `Sei un assistente per la gestione turni di uno stabilimento balneare italiano.
 
-REGOLE FISSE — rispettale sempre:
-- Banco: minimo 2 persone per ogni giorno aperto (persone con area Bar, Cucina, Cassa o area vuota)
-- Sala: minimo 1 persona per ogni giorno aperto (area Sala)
-- Giorno libero garantito a tutti tranne David (id:e_david) — David può lavorare tutti i giorni
-- Albert (id:e_albert): rotazione libera, ma minimo 2 mattine a settimana (turno che inizia tra le 7 e le 12)
-- David (id:e_david): preferenza sera (inizia dalle 13 in poi)
-- Jessi (id:e_jessi): SEMPRE sera (inizia dalle 16 in poi), area Bar
-- Se disponibilità è "no" per un giorno: NON assegnare turno quel giorno
-- Se disponibilità è "soloMat": solo turni mattina (inizio prima delle 13)
-- Se disponibilità è "solaSer": solo turni sera (inizio dalle 13 in poi)
+REGOLE TURNI (definite dal manager — seguile sempre):\n\${getRules()}
 
-FASCE ORARIE:
-Mattina: 07:00-16:00, 09:00-18:00, 07:00-13:00, 09:00-15:00
-Sera: 16:00-00:00, 18:00-01:00, 16:00-22:00, 19:00-01:00
+STAGIONALITÀ E ORARI DI APERTURA:
+- Aprile–fine maggio (fino al 25 maggio): aperto solo sabato e domenica, orario 07:00-20:00
+- Da fine maggio (26 maggio) a metà settembre: aperto tutti i giorni, orario 07:00-01:00
+
+FASCE ORARIE STANDARD:
+Mattina lunga: 07:00-16:00, 09:00-18:00 (9h)
+Mattina corta: 07:00-13:00, 09:00-15:00 (6h)
+Sera lunga: 16:00-00:00, 18:00-01:00
+Sera corta: 16:00-22:00, 19:00-01:00
 Turni spezzati: usa "start2" e "end2" per aggiungere una seconda fascia (es. 07:00-13:00 + 18:00-01:00)
+
+CONTRATTI E TARIFFE ORARIE (per calcolo costi):
+- Angie: mensile, 9h contrattuali/giorno → tariffa implicita = stipendio ÷ (9×26)
+- Sofia: mensile, 9h contrattuali/giorno → tariffa implicita = stipendio ÷ (9×26)
+- Anna: mensile, 8h contrattuali/giorno → tariffa implicita = stipendio ÷ (8×26)
+- Albert, David, Renee: a ore → costo = ore effettive × paga oraria
 
 AREE valide: Bar, Cucina, Cassa, Sala
 
 SETTIMANA: ${fmtIt(mon)} – ${fmtIt(addDays(mon,6))}
 GIORNI APERTI (con date esatte): ${openDayNames||'nessuno'}
+⚠️ REGOLA PRIORITÀ ASSOLUTA: devi assegnare turni a TUTTI e SOLI i giorni elencati sopra in "GIORNI APERTI". Ignora le regole stagionali di default (sab/dom in aprile ecc.) — la lista dei giorni aperti è già calcolata dall'app e include eventuali aperture extra manuali. Se un giorno è in lista → va coperto. Se non è in lista → non assegnare turni.
 ${ev?`EVENTO SETTIMANA: ${ev.name}${ev.note?' — '+ev.note:''}`:'' }
+${dayNotesStr?`NOTE GIORNALIERE (seguile con priorità assoluta):\n${dayNotesStr}`:''}
 
 DIPENDENTI:
 ${empSummary}
@@ -1287,41 +1330,8 @@ async function sendAI(){
   save();
 }
 
-function saveBinKey(){
-  const k=document.getElementById('binkey-input').value.trim();
-  if(!k)return;
-  setBinKey(k);
-  togglePanel('panel-settings');
-  syncNow();
-}
-async function syncNow(){
-  const ok=await loadFromCloud();
-  if(ok){renderWeek();renderEmp();}
-}
-function exportData(){
-  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download='turno_backup_'+fmt(new Date())+'.json';a.click();
-}
-function importData(ev){
-  const file=ev.target.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=e=>{
-    try{const data=JSON.parse(e.target.result);if(data.employees){S=data;save();renderWeek();renderEmp();showSyncStatus('Importato ✓','#3b6d11');}else alert('File non valido');}
-    catch(err){alert('Errore lettura file');}
-  };
-  reader.readAsText(file);ev.target.value='';
-}
-
-loadLocal();
-const savedBinKey=getBinKey();
-if(savedBinKey&&document.getElementById('binkey-input'))document.getElementById('binkey-input').value=savedBinKey;
-const sk=localStorage.getItem('tm_apikey');
-if(sk)document.getElementById('api-key-input').value=sk;
-curWeek=getMonday(new Date());
+load();curWeek=getMonday(new Date());
 renderWeek();renderEmp();
-// Carica dal cloud in background
-loadFromCloud().then(ok=>{if(ok){renderWeek();renderEmp();}});
 </script>
 </body>
 </html>
