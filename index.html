@@ -8,7 +8,7 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;font-size:13px;background:#f8f8f6;color:#1a1a1a}
 .app{max-width:960px;margin:0 auto;padding:1rem}
-.tabs{display:flex;gap:4px;border-bottom:1px solid #e0dfd8;margin-bottom:1.25rem;flex-wrap:wrap}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
 .tab{padding:8px 14px;font-size:13px;cursor:pointer;border:none;background:none;color:#888;border-bottom:2px solid transparent}
 .tab.active{color:#1a1a1a;border-bottom-color:#1a1a1a;font-weight:500}
 .tab:hover:not(.active){color:#1a1a1a}
@@ -106,11 +106,6 @@ table.tbl tr:last-child td{border-bottom:none}
 .ai-actions{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .quick-btn{font-size:12px;padding:5px 12px;border:0.5px solid #ccc;border-radius:8px;cursor:pointer;background:#fff;color:#1a1a1a;font-family:inherit;white-space:nowrap}
 .quick-btn:hover{background:#f4f3ee}
-.rules-editor{width:100%;min-height:280px;resize:vertical;font-size:13px;line-height:1.6;font-family:inherit;padding:10px;border:0.5px solid #ccc;border-radius:8px;background:#fff}
-.rules-editor:focus{border-color:#888;outline:none}
-.note-day-tag{display:inline-block;font-size:9px;background:#eeedfe;color:#3c3489;border-radius:3px;padding:1px 4px;margin-top:1px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wg-head-clickable{cursor:pointer;border-radius:4px;padding:4px;transition:background .1s}
-.wg-head-clickable:hover{background:#f4f3ee}
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid #ccc;border-top-color:#1a1a1a;border-radius:50%;animation:spin .7s linear infinite;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
@@ -184,11 +179,29 @@ table.tbl tr:last-child td{border-bottom:none}
 </head>
 <body>
 <div class="app">
-<div class="tabs">
-  <button class="tab active" onclick="showTab('turni')">Turni settimana</button>
-  <button class="tab" onclick="showTab('dipendenti')">Dipendenti</button>
-  <button class="tab" onclick="showTab('statistiche')">Statistiche</button>
-  <button class="tab" onclick="showTab('ai')">AI assistant</button>
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+  <div class="tabs" style="flex:1;margin-bottom:0;border-bottom:none">
+    <button class="tab active" onclick="showTab('turni')">Turni settimana</button>
+    <button class="tab" onclick="showTab('dipendenti')">Dipendenti</button>
+    <button class="tab" onclick="showTab('statistiche')">Statistiche</button>
+    <button class="tab" onclick="showTab('ai')">AI assistant</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;padding-bottom:4px;flex-shrink:0">
+    <span id="sync-status" style="font-size:11px;color:#888"></span>
+    <button class="btn btn-sm" onclick="togglePanel('panel-settings')" title="Impostazioni sync">⚙</button>
+  </div>
+</div>
+<div style="border-bottom:1px solid #e0dfd8;margin-bottom:1.25rem"></div>
+<div id="panel-settings" class="panel hidden" style="margin-bottom:1rem">
+  <div class="st">Impostazioni sync cloud (JSONBin.io)</div>
+  <div class="fg"><label>Master Key JSONBin</label><input type="password" id="jsonbin-key" placeholder="$2a$10$..." style="font-family:monospace;font-size:12px" oninput="saveJsonbinKey()"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <button class="btn btn-sm btn-primary" onclick="syncToCloud()">Salva sul cloud ora</button>
+    <button class="btn btn-sm" onclick="syncFromCloud()">Carica dal cloud</button>
+    <button class="btn btn-sm" onclick="exportJSON()">Esporta JSON</button>
+    <button class="btn btn-sm" onclick="importJSON()">Importa JSON</button>
+  </div>
+  <div style="font-size:11px;color:#888">Bin ID: <code>69dbf9b336566621a8a71b4b</code> · Debounce 1.5s · 10.000 req/mese sul piano free</div>
 </div>
 
 <!-- TURNI -->
@@ -206,17 +219,7 @@ table.tbl tr:last-child td{border-bottom:none}
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;align-items:center">
     <button class="btn btn-sm" onclick="togglePanel('panel-event')">+ Evento settimana</button>
-    <span style="font-size:11px;color:#888">· Clicca sui giorni grigi per aprirli · Clicca sull'intestazione del giorno per aggiungere note</span>
-  </div>
-  <div id="panel-day-note" class="panel hidden">
-    <div class="st" id="panel-day-note-title">Note giorno</div>
-    <p style="font-size:11px;color:#888;margin-bottom:8px">Le note vengono lette dall'AI quando crea i turni (es. "David assente", "evento serale importante", "cucina chiusa").</p>
-    <div class="fg"><textarea id="day-note-text" rows="3" style="resize:none;width:100%" placeholder="es. David assente per visita medica, Angie disponibile solo mattina..."></textarea></div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-primary btn-sm" onclick="saveDayNote()">Salva</button>
-      <button class="btn btn-sm btn-danger" onclick="deleteDayNote()">Rimuovi</button>
-      <button class="btn btn-sm" onclick="togglePanel('panel-day-note')">Chiudi</button>
-    </div>
+    <span style="font-size:11px;color:#888">· Clicca sui giorni grigi per aprirli manualmente</span>
   </div>
   <div id="timeline-container"></div>
   <div id="panel-event" class="panel hidden">
@@ -227,6 +230,15 @@ table.tbl tr:last-child td{border-bottom:none}
       <button class="btn btn-primary btn-sm" onclick="saveEvent()">Salva</button>
       <button class="btn btn-sm btn-danger" onclick="deleteEvent()">Rimuovi</button>
       <button class="btn btn-sm" onclick="togglePanel('panel-event')">Chiudi</button>
+    </div>
+  </div>
+  <div id="panel-daynote" class="panel hidden">
+    <div class="st" id="daynote-title">Note giornaliere</div>
+    <div class="fg"><label>Note per questo giorno (es. "David assente", "apertura anticipata")</label><textarea id="daynote-text" rows="3" style="resize:none;width:100%" placeholder="Note libere per l'AI e il manager..."></textarea></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="saveDayNote()">Salva</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteDayNote()">Rimuovi</button>
+      <button class="btn btn-sm" onclick="closeDayNote()">Chiudi</button>
     </div>
   </div>
   <div id="panel-shift" class="panel hidden">
@@ -324,12 +336,46 @@ table.tbl tr:last-child td{border-bottom:none}
         </select>
       </div>
     </div>
+    <div class="fg" style="margin-top:4px"><label>Note/regole per l'AI (es. "disponibile da giugno", "no turni apertura", "max 5 ore")</label><textarea id="e-note" rows="2" style="resize:none;width:100%" placeholder="Lascia vuoto se non ci sono regole particolari"></textarea></div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-primary btn-sm" onclick="saveEmp()">Aggiungi</button>
       <button class="btn btn-sm" onclick="togglePanel('panel-add-emp')">Annulla</button>
     </div>
   </div>
   <div class="emp-list" id="emp-list"></div>
+  <div id="panel-edit-emp" class="panel hidden" style="margin-top:10px">
+    <div class="st" id="edit-emp-title">Modifica dipendente</div>
+    <input type="hidden" id="ee-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg"><label>Nome</label><input id="ee-name" type="text"></div>
+      <div class="fg"><label>Ruolo principale</label>
+        <select id="ee-area"><option value="">Flessibile</option><option>Bar</option><option>Cucina</option><option>Cassa</option><option>Sala</option></select>
+      </div>
+      <div class="fg"><label>Tipo contratto</label>
+        <select id="ee-tipo"><option value="mensile">Mensile</option><option value="orario">A ore</option><option value="extra">Extra/chiamata</option></select>
+      </div>
+      <div class="fg"><label>Paga (€/mese o €/ora)</label><input id="ee-paga" type="number"></div>
+      <div class="fg"><label>Ore/giorno contratto (solo mensili)</label><input id="ee-ore" type="number" min="1" max="12"></div>
+      <div class="fg"><label>Preferenza turno</label>
+        <select id="ee-pref">
+          <option value="rot">Rotazione libera</option>
+          <option value="mat">Min 2-3 mattine/sett</option>
+          <option value="ser">Sempre sera</option>
+        </select>
+      </div>
+      <div class="fg"><label>Giorno libero</label>
+        <select id="ee-libero">
+          <option value="si">Garantito ogni settimana</option>
+          <option value="no">Deciso volta per volta</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg" style="margin-top:4px"><label>Note/regole per l'AI (es. "disponibile da 2026-06-01", "no turni apertura", "max 5 ore")</label><textarea id="ee-note" rows="2" style="resize:none;width:100%"></textarea></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary btn-sm" onclick="updateEmp()">Salva modifiche</button>
+      <button class="btn btn-sm" onclick="closeEditEmp()">Annulla</button>
+    </div>
+  </div>
 </div>
 
 <!-- STATISTICHE -->
@@ -352,18 +398,6 @@ table.tbl tr:last-child td{border-bottom:none}
 
 <!-- AI -->
 <div id="sec-ai" class="section">
-  <div class="card" style="margin-bottom:0.75rem">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-      <div class="st" style="margin:0">Regole per la creazione turni</div>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-sm" onclick="resetRules()">Ripristina default</button>
-        <button class="btn btn-primary btn-sm" onclick="saveRules()">Salva regole</button>
-      </div>
-    </div>
-    <p style="font-size:11px;color:#888;margin-bottom:8px">Queste regole vengono passate all'AI ogni volta che crea o modifica i turni. Modificale liberamente — ogni riga è una regola.</p>
-    <textarea class="rules-editor" id="rules-editor"></textarea>
-  </div>
-
   <div class="card">
     <div class="st" style="margin-bottom:10px">AI assistant</div>
     <div class="api-key-bar">
@@ -383,6 +417,17 @@ table.tbl tr:last-child td{border-bottom:none}
       <input type="text" id="ai-input" placeholder="es. crea i turni per questa settimana..." onkeydown="if(event.key==='Enter')sendAI()">
       <button class="btn btn-primary" onclick="sendAI()">Invia</button>
     </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="st" style="margin:0">Regole AI (editabili)</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm" onclick="resetAIRules()">Ripristina default</button>
+        <button class="btn btn-primary btn-sm" onclick="saveAIRules()">Salva</button>
+      </div>
+    </div>
+    <div style="font-size:11px;color:#888;margin-bottom:6px">Queste regole vengono aggiunte al contesto dell'AI ad ogni messaggio. Modificale per adattare il comportamento.</div>
+    <textarea id="ai-rules-text" rows="6" style="width:100%;resize:vertical;font-size:12px;font-family:inherit;line-height:1.5"></textarea>
   </div>
 </div>
 </div>
@@ -405,53 +450,6 @@ const DEFAULT_STAFF=[
 ];
 
 let S={employees:[],shifts:{},draftShifts:{},events:{},avail:{},aiHistory:[],draft:{},extraOpen:{},dayNotes:{}};
-let activeDayNoteKey=null;
-
-const DEFAULT_RULES=`- Banco: minimo 2 persone per ogni giorno aperto (Bar, Cucina, Cassa o area vuota)
-- Sala: minimo 1 persona per ogni giorno aperto (area Sala)
-- Giorno libero garantito ogni settimana a: Angie, Sofia, Anna, Renee. David: ogni 2-3 settimane se possibile, decide il manager
-- Albert: rotazione libera, minimo 2-3 mattine a settimana (turno che inizia tra le 7 e le 12)
-- David: preferenza sera (inizia dalle 13 in poi). Giorno libero solo se il manager lo decide
-- Jessi: SEMPRE sera area Bar. Aprile-maggio solo weekend, da fine maggio 4gg/sett, luglio-20ago 5gg/sett. Orario standard 18:00-00:00, weekend può iniziare 16:00-17:00, eventi serali fino 01:00
-- Renee: rotazione libera, 4 giorni/sett da giugno, pagata a ore
-- Sara: NON è barista autonoma. Supporto a rotazione su cucina/reception/birre
-- Non assegnare turni nei giorni con disponibilità "no"
-- Turni spezzati possibili: prima fascia + seconda fascia (start2/end2)
-- Max 8-9 ore per turno salvo eccezioni
-- Se ci sono eventi serali: rinforzare la sera con personale aggiuntivo`;
-
-function getRules(){return localStorage.getItem('tm_rules')||DEFAULT_RULES;}
-function saveRules(){
-  localStorage.setItem('tm_rules',document.getElementById('rules-editor').value);
-  const btn=event.target;btn.textContent='Salvato ✓';setTimeout(()=>btn.textContent='Salva regole',1500);
-}
-function resetRules(){
-  if(!confirm('Ripristinare le regole di default?'))return;
-  localStorage.removeItem('tm_rules');
-  document.getElementById('rules-editor').value=DEFAULT_RULES;
-}
-
-function openDayNote(ds,dayLabel){
-  activeDayNoteKey=ds;
-  document.getElementById('panel-day-note-title').textContent='Note — '+dayLabel;
-  document.getElementById('day-note-text').value=S.dayNotes[ds]||'';
-  const p=document.getElementById('panel-day-note');
-  p.classList.remove('hidden');
-  p.scrollIntoView({behavior:'smooth',block:'nearest'});
-}
-function saveDayNote(){
-  if(!activeDayNoteKey)return;
-  const txt=document.getElementById('day-note-text').value.trim();
-  if(txt)S.dayNotes[activeDayNoteKey]=txt;
-  else delete S.dayNotes[activeDayNoteKey];
-  save();togglePanel('panel-day-note');renderWeek();
-}
-function deleteDayNote(){
-  if(!activeDayNoteKey)return;
-  delete S.dayNotes[activeDayNoteKey];
-  save();togglePanel('panel-day-note');renderWeek();
-  activeDayNoteKey=null;
-}
 let curWeek=null, activeKey=null;
 
 function load(){
@@ -467,15 +465,137 @@ function load(){
     }
   }
   if(!S.employees.length){S.employees=DEFAULT_STAFF.map(e=>({...e}));}
-  // Inizializza editor regole
-  const re=document.getElementById('rules-editor');
-  if(re)re.value=getRules();
   save();
   const savedKey=localStorage.getItem('tm_apikey');
   if(savedKey)document.getElementById('api-key-input').value=savedKey;
+  const jbKey=localStorage.getItem('tm_jsonbin_key');
+  if(jbKey)document.getElementById('jsonbin-key').value=jbKey;
+  loadAIRules();
 }
-function save(){localStorage.setItem('tm_v7',JSON.stringify(S));}
+function save(){
+  localStorage.setItem('tm_v7',JSON.stringify(S));
+  scheduleCloudSave();
+}
+
+// ── JSONBIN SYNC ──────────────────────────────────────────────────────────────
+const JSONBIN_ID='69dbf9b336566621a8a71b4b';
+let cloudSaveTimer=null;
+
+function getJsonbinKey(){return localStorage.getItem('tm_jsonbin_key')||'';}
+function saveJsonbinKey(){localStorage.setItem('tm_jsonbin_key',document.getElementById('jsonbin-key').value.trim());}
+
+function setSyncStatus(msg,color){
+  const el=document.getElementById('sync-status');
+  if(el){el.textContent=msg;el.style.color=color||'#888';}
+}
+
+function scheduleCloudSave(){
+  if(!getJsonbinKey())return;
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer=setTimeout(syncToCloud,1500);
+}
+
+async function syncToCloud(){
+  const key=getJsonbinKey();
+  if(!key)return;
+  setSyncStatus('Salvataggio…','#888');
+  try{
+    const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key':key,'X-Bin-Versioning':'false'},
+      body:JSON.stringify(S)
+    });
+    if(r.ok){setSyncStatus('Salvato ✓','#3b6d11');}
+    else{setSyncStatus('Errore sync ✗','#a32d2d');}
+  }catch(e){setSyncStatus('Errore rete ✗','#a32d2d');}
+}
+
+async function syncFromCloud(){
+  const key=getJsonbinKey();
+  if(!key){alert('Inserisci la Master Key JSONBin nelle impostazioni.');return;}
+  setSyncStatus('Caricamento…','#888');
+  try{
+    const r=await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_ID}/latest`,{
+      headers:{'X-Master-Key':key}
+    });
+    if(!r.ok){setSyncStatus('Errore sync ✗','#a32d2d');return;}
+    const data=await r.json();
+    const remote=data.record;
+    if(remote&&remote.employees){
+      S=remote;
+      ['employees','shifts','draftShifts','events','avail','aiHistory','draft','extraOpen','dayNotes'].forEach(k=>{
+        if(!S[k])S[k]=k==='employees'||k==='aiHistory'?[]:{}
+      });
+      localStorage.setItem('tm_v7',JSON.stringify(S));
+      setSyncStatus('Salvato ✓','#3b6d11');
+      renderWeek();renderEmp();
+    }
+  }catch(e){setSyncStatus('Errore rete ✗','#a32d2d');}
+}
+
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`turno-manager-backup-${fmt(new Date())}.json`;
+  a.click();URL.revokeObjectURL(a.href);
+}
+
+function importJSON(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json';
+  inp.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const imported=JSON.parse(ev.target.result);
+        if(!imported.employees){alert('File non valido.');return;}
+        if(!confirm('Sovrascrivere i dati attuali con il file importato?'))return;
+        S=imported;
+        ['employees','shifts','draftShifts','events','avail','aiHistory','draft','extraOpen','dayNotes'].forEach(k=>{
+          if(!S[k])S[k]=k==='employees'||k==='aiHistory'?[]:{}
+        });
+        save();renderWeek();renderEmp();
+        alert('Importazione completata.');
+      }catch(ex){alert('Errore nel parsing del file JSON.');}
+    };
+    reader.readAsText(file);
+  };
+  inp.click();
+}
 function saveApiKey(){localStorage.setItem('tm_apikey',document.getElementById('api-key-input').value);}
+
+const DEFAULT_AI_RULES=`- Banco: minimo 2 persone ogni giorno aperto
+- Sala: minimo 1 persona ogni giorno aperto
+- Giorno libero garantito a: Angie, Sofia, Anna, Renee ogni settimana
+- Albert: min 2-3 mattine/sett (turno che inizia tra le 7 e le 12)
+- David: preferenza sera (inizia dalle 13), giorno libero solo se deciso dal manager
+- Jessi: sempre sera, area Bar — non assegnare mai a turni mattina
+- Sara: NON è barista operativa — solo supporto cucina/reception/birre, mai turno bar autonomo
+- Turni spezzati consentiti (start2/end2) per casi particolari
+- Non assegnare turni nei giorni con disponibilità "no"`;
+
+function loadAIRules(){
+  const saved=localStorage.getItem('tm_airules');
+  const txt=saved||DEFAULT_AI_RULES;
+  const el=document.getElementById('ai-rules-text');
+  if(el)el.value=txt;
+  return txt;
+}
+function saveAIRules(){
+  const txt=document.getElementById('ai-rules-text').value;
+  localStorage.setItem('tm_airules',txt);
+  const fb=document.createElement('span');
+  fb.textContent=' Salvato ✓';fb.style.cssText='font-size:12px;color:#3b6d11';
+  const btn=document.querySelector('[onclick="saveAIRules()"]');
+  if(btn){btn.parentNode.appendChild(fb);setTimeout(()=>fb.remove(),2000);}
+}
+function resetAIRules(){
+  if(!confirm('Ripristinare le regole di default?'))return;
+  localStorage.removeItem('tm_airules');
+  document.getElementById('ai-rules-text').value=DEFAULT_AI_RULES;
+}
+function getAIRules(){return localStorage.getItem('tm_airules')||DEFAULT_AI_RULES;}
 function getApiKey(){return document.getElementById('api-key-input').value.trim();}
 function getMonday(d){const dt=new Date(d);const w=dt.getDay();dt.setDate(dt.getDate()-w+(w===0?-6:1));dt.setHours(0,0,0,0);return dt;}
 function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
@@ -554,7 +674,11 @@ function renderWeek(){
   document.getElementById('event-banner').innerHTML=ev?`<div class="al al-w" style="margin-bottom:8px">Evento: <strong>${ev.name}</strong>${ev.note?' — '+ev.note:''}</div>`:'';
 
   const hasDraft=hasDraftForWeek(wk);
-  document.getElementById('draft-banner').innerHTML=hasDraft?`
+  document.getElementById('draft-banner').innerHTML=copySourceDate?`
+    <div class="draft-banner" style="background:#e6f1fb;border-color:#85b7eb">
+      <span style="color:#0c447c">⎘ Copia attiva: <strong>${copySourceDate.slice(5).replace('-','/')}</strong> — clicca 📋 su un altro giorno per incollare i turni</span>
+      <button class="btn btn-sm" onclick="startCopyDay(null)">Annulla (ESC)</button>
+    </div>`:hasDraft?`
     <div class="draft-banner">
       <span>Bozza turni proposta dall'AI — controlla e conferma o chiedi modifiche</span>
       <button class="btn btn-green btn-sm" onclick="confirmDraft()">Conferma tutti</button>
@@ -568,13 +692,48 @@ function renderWeek(){
   g.appendChild(mk('div','wg-head',''));
   dates.forEach((d,i)=>{
     const ds=fmt(d);
-    const hasNote=isOpen(d)&&S.dayNotes[ds];
-    const dow=d.getDay();
-    const dayName=DAYS[dow===0?6:dow-1];
-    const noteIcon=hasNote?'<div class="note-day-tag" title="'+S.dayNotes[ds].slice(0,60)+'">📝 nota</div>':'';
-    const h=mk('div',isOpen(d)?'wg-head wg-head-clickable':'wg-head',`<div>${DAYS[i]}</div><div style="font-weight:500">${d.getDate()}</div>${noteIcon}`);
-    if(!isOpen(d))h.style.opacity='0.3';
-    else h.onclick=()=>openDayNote(ds,dayName+' '+d.getDate());
+    const note=S.dayNotes[ds]||'';
+    const noteDot=note?`<div style="width:5px;height:5px;border-radius:50%;background:#ef9f27;margin:1px auto 0" title="${note.replace(/"/g,'&quot;')}"></div>`:'';
+    const open=isOpen(d);
+    const isCopySrc=copySourceDate===ds;
+    const h=document.createElement('div');
+    h.className='wg-head';
+    h.style.position='relative';
+    if(!open)h.style.opacity='0.3';
+
+    // contenuto: giorno + numero + dot note
+    const inner=document.createElement('div');
+    inner.innerHTML=`<div>${DAYS[i]}</div><div style="font-weight:500">${d.getDate()}</div>${noteDot}`;
+    h.appendChild(inner);
+
+    if(open){
+      if(copySourceDate&&!isCopySrc){
+        // modalità incolla: cella diventa verde cliccabile
+        h.style.background='#eaf3de';
+        h.style.borderRadius='6px';
+        h.style.cursor='pointer';
+        h.title=`Incolla turni da ${copySourceDate} a ${ds}`;
+        const pasteBtn=document.createElement('div');
+        pasteBtn.textContent='📋';
+        pasteBtn.style.cssText='font-size:12px;line-height:1';
+        h.appendChild(pasteBtn);
+        h.onclick=()=>pasteDayShifts(ds);
+      } else {
+        // icona copia in hover
+        const copyBtn=document.createElement('div');
+        copyBtn.textContent=isCopySrc?'✓':'⎘';
+        copyBtn.style.cssText=`position:absolute;top:2px;right:3px;font-size:10px;cursor:pointer;opacity:${isCopySrc?1:0};transition:opacity .15s;color:${isCopySrc?'#3b6d11':'#888'};`;
+        copyBtn.title=isCopySrc?'Copia attiva — clicca su un altro giorno per incollare':'Copia turni di questo giorno';
+        copyBtn.onclick=(e)=>{e.stopPropagation();startCopyDay(ds);};
+        h.appendChild(copyBtn);
+        h.addEventListener('mouseenter',()=>{if(!isCopySrc)copyBtn.style.opacity='1';});
+        h.addEventListener('mouseleave',()=>{if(!isCopySrc)copyBtn.style.opacity='0';});
+        // click normale → note giornaliere
+        inner.style.cursor='pointer';
+        inner.title='Clicca per aggiungere note giornaliere';
+        inner.onclick=()=>openDayNote(ds,d);
+      }
+    }
     g.appendChild(h);
   });
   if(!S.employees.length){
@@ -622,6 +781,24 @@ function renderWeek(){
             cell.appendChild(mk('div','sb sb-draft',`~ ${draft.start}–${draft.end}`));
             if(draft.area){cell.appendChild(mk('div','sb-area',draft.area));}
           }
+        }
+        // X rimozione rapida (solo se c'è un turno o bozza)
+        if(sh||draft){
+          const xBtn=document.createElement('div');
+          xBtn.style.cssText='position:absolute;top:2px;right:2px;width:14px;height:14px;border-radius:50%;background:rgba(0,0,0,0.12);color:#555;font-size:9px;line-height:14px;text-align:center;cursor:pointer;opacity:0;transition:opacity .15s;z-index:2;font-weight:700';
+          xBtn.textContent='×';
+          xBtn.title='Rimuovi turno';
+          xBtn.onclick=(e)=>{
+            e.stopPropagation();
+            const key=`${emp.id}_${ds}`;
+            delete S.shifts[key];
+            delete S.draftShifts[key];
+            save();renderWeek();
+          };
+          cell.style.position='relative';
+          cell.appendChild(xBtn);
+          cell.addEventListener('mouseenter',()=>xBtn.style.opacity='1');
+          cell.addEventListener('mouseleave',()=>xBtn.style.opacity='0');
         }
         cell.onclick=()=>openShift(emp,d,sh||draft,`${emp.id}_${ds}`);
       }
@@ -715,6 +892,7 @@ function renderWeekGrid(){
 }
 
 document.addEventListener('mousemove',tlMouseMove);
+document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&copySourceDate){copySourceDate=null;renderWeek();}});
 document.addEventListener('mouseup',tlMouseUp);
 
 // Touch support per timeline drag
@@ -1034,7 +1212,61 @@ function saveShift(){
   save();closeShift();renderWeek();
 }
 function closeShift(){document.getElementById('panel-shift').classList.add('hidden');activeKey=null;}
+
+let activeDayNoteDate=null;
+function openDayNote(ds,d){
+  activeDayNoteDate=ds;
+  document.getElementById('daynote-title').textContent='Note — '+d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('daynote-text').value=S.dayNotes[ds]||'';
+  const p=document.getElementById('panel-daynote');
+  p.classList.remove('hidden');
+  document.getElementById('panel-shift').classList.add('hidden');
+  p.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function saveDayNote(){
+  if(!activeDayNoteDate)return;
+  const txt=document.getElementById('daynote-text').value.trim();
+  if(txt)S.dayNotes[activeDayNoteDate]=txt;
+  else delete S.dayNotes[activeDayNoteDate];
+  save();closeDayNote();renderWeek();
+}
+function deleteDayNote(){
+  if(!activeDayNoteDate)return;
+  delete S.dayNotes[activeDayNoteDate];
+  save();closeDayNote();renderWeek();
+}
+function closeDayNote(){document.getElementById('panel-daynote').classList.add('hidden');activeDayNoteDate=null;}
 function changeWeek(d){curWeek=addDays(curWeek,d*7);save();renderWeek();}
+
+// ── COPIA GIORNO ──────────────────────────────────────────────────────────────
+let copySourceDate=null;
+
+function startCopyDay(ds){
+  copySourceDate=(ds===null||copySourceDate===ds)?null:ds; // toggle o annulla
+  renderWeek();
+}
+
+function pasteDayShifts(targetDs){
+  if(!copySourceDate)return;
+  const srcDate=copySourceDate;
+  let copied=0;
+  S.employees.forEach(emp=>{
+    const srcKey=`${emp.id}_${srcDate}`;
+    const tgtKey=`${emp.id}_${targetDs}`;
+    const src=S.shifts[srcKey];
+    if(src){S.shifts[tgtKey]={...src};copied++;}
+  });
+  save();
+  copySourceDate=null;
+  renderWeek();
+  // feedback breve
+  const banner=document.getElementById('coverage-alerts');
+  const fb=document.createElement('div');
+  fb.className='al al-ok';fb.style.marginBottom='4px';
+  fb.textContent=`✓ ${copied} turni copiati da ${srcDate.slice(5).replace('-','/')} → ${targetDs.slice(5).replace('-','/')}`;
+  banner.prepend(fb);
+  setTimeout(()=>fb.remove(),3000);
+}
 
 function renderEmp(){
   const list=document.getElementById('emp-list');
@@ -1052,23 +1284,27 @@ function renderEmp(){
       const lbl=av==='full'?day:av==='mat'?day+'↑':av==='ser'?day+'↓':'—';
       return `<span class="disp-pill ${DCLS[av]}" onclick="cycleAvail('${emp.id}','${wk}',${i})" title="${DLBL[av]}">${lbl}</span>`;
     }).join('');
+    const noteHtml=emp.note?`<div style="font-size:11px;color:#888;padding:5px 14px 8px 56px;border-top:0.5px solid #e0dfd8;background:#f4f3ee;font-style:italic">📋 ${emp.note.replace(/</g,'&lt;')}</div>`:'';
     return `<div class="emp-row">
       <div class="emp-main">
         <div class="av" style="background:${bg};color:${fg}">${ini}</div>
         <div class="ei"><div class="en">${emp.name}</div><div class="em">${pagaStr} · ${liberoStr}</div></div>
         <span class="badge ${emp.area==='Bar'?'b-bar':emp.area?'b-cucina':'b-flex'}">${emp.area||'Flessibile'}</span>
         <span class="badge ${prefCls[emp.pref]||'b-rot'}">${prefLabel[emp.pref]||'rotazione'}</span>
+        <button class="btn btn-sm" onclick="openEditEmp('${emp.id}')">✏️</button>
         <button class="btn btn-sm btn-danger" onclick="delEmp('${emp.id}')">×</button>
       </div>
       <div class="emp-disp"><span style="font-size:11px;color:#888">Disp.:</span>${pills}<span style="font-size:10px;color:#888;opacity:0.7">clicca per cambiare</span></div>
+      ${noteHtml}
     </div>`;
   }).join('');
 }
 
 function saveEmp(){
   const name=document.getElementById('e-name').value.trim();if(!name){document.getElementById('e-name').focus();return;}
-  S.employees.push({id:'e'+Date.now(),name,area:document.getElementById('e-area').value,tipo:document.getElementById('e-tipo').value,paga:parseFloat(document.getElementById('e-paga').value)||0,oreContratto:parseFloat(document.getElementById('e-ore').value)||9,pref:document.getElementById('e-pref').value,libero:document.getElementById('e-libero').value,ci:S.employees.length%COLORS.length});
-  document.getElementById('e-name').value='';document.getElementById('e-paga').value='';
+  const note=document.getElementById('e-note').value.trim();
+  S.employees.push({id:'e'+Date.now(),name,area:document.getElementById('e-area').value,tipo:document.getElementById('e-tipo').value,paga:parseFloat(document.getElementById('e-paga').value)||0,oreContratto:parseFloat(document.getElementById('e-ore').value)||9,pref:document.getElementById('e-pref').value,libero:document.getElementById('e-libero').value,note:note||'',ci:S.employees.length%COLORS.length});
+  document.getElementById('e-name').value='';document.getElementById('e-paga').value='';document.getElementById('e-note').value='';
   save();togglePanel('panel-add-emp');renderEmp();renderWeek();
 }
 function delEmp(id){
@@ -1077,6 +1313,38 @@ function delEmp(id){
   ['shifts','draftShifts','avail'].forEach(store=>{Object.keys(S[store]).filter(k=>k.startsWith(id+'_')).forEach(k=>delete S[store][k]);});
   save();renderEmp();renderWeek();
 }
+
+function openEditEmp(id){
+  const emp=S.employees.find(e=>e.id===id);if(!emp)return;
+  document.getElementById('ee-id').value=id;
+  document.getElementById('edit-emp-title').textContent='Modifica — '+emp.name;
+  document.getElementById('ee-name').value=emp.name;
+  document.getElementById('ee-area').value=emp.area||'';
+  document.getElementById('ee-tipo').value=emp.tipo||'mensile';
+  document.getElementById('ee-paga').value=emp.paga||'';
+  document.getElementById('ee-ore').value=emp.oreContratto||9;
+  document.getElementById('ee-pref').value=emp.pref||'rot';
+  document.getElementById('ee-libero').value=emp.libero||'si';
+  document.getElementById('ee-note').value=emp.note||'';
+  const p=document.getElementById('panel-edit-emp');
+  p.classList.remove('hidden');
+  p.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function updateEmp(){
+  const id=document.getElementById('ee-id').value;
+  const emp=S.employees.find(e=>e.id===id);if(!emp)return;
+  const name=document.getElementById('ee-name').value.trim();if(!name)return;
+  emp.name=name;
+  emp.area=document.getElementById('ee-area').value;
+  emp.tipo=document.getElementById('ee-tipo').value;
+  emp.paga=parseFloat(document.getElementById('ee-paga').value)||0;
+  emp.oreContratto=parseFloat(document.getElementById('ee-ore').value)||9;
+  emp.pref=document.getElementById('ee-pref').value;
+  emp.libero=document.getElementById('ee-libero').value;
+  emp.note=document.getElementById('ee-note').value.trim();
+  save();closeEditEmp();renderEmp();renderWeek();
+}
+function closeEditEmp(){document.getElementById('panel-edit-emp').classList.add('hidden');}
 
 function saveEvent(){
   const name=document.getElementById('ev-name').value.trim();if(!name)return;
@@ -1184,18 +1452,30 @@ function buildSystemPrompt(){
     return `  ${emp.name} ${date}: ${v.type}`;
   }).filter(Boolean).join('\n');
   const ev=S.events[wk];
-  // Note giornaliere
-  const dayNotesStr=Object.entries(S.dayNotes||{})
-    .filter(([ds])=>openDays.some(d=>fmt(d)===ds))
-    .map(([ds,note])=>{
-      const d=new Date(ds+'T00:00:00');
-      const dow=d.getDay();
-      const dn=DAYS[dow===0?6:dow-1];
-      return `  ${dn} ${ds}: ${note}`;
-    }).join('\n');
+  const customRules=getAIRules();
+  const empNotes=S.employees.filter(e=>e.note&&e.note.trim()).map(e=>`- ${e.name}: ${e.note.trim()}`).join('\n');
   return `Sei un assistente per la gestione turni di uno stabilimento balneare italiano.
 
-REGOLE TURNI (definite dal manager — seguile sempre):\n\${getRules()}
+REGOLE DEL MANAGER (editabili — hanno priorità su tutto):
+${customRules}
+${empNotes?`\nREGOLE SPECIFICHE PER DIPENDENTE (auto-generate dalle schede — rispettale sempre):\n${empNotes}`:''}
+
+REGOLE FISSE — rispettale sempre:
+- Banco: minimo 2 persone per ogni giorno aperto (persone con area Bar, Cucina, Cassa o area vuota)
+- Sala: minimo 1 persona per ogni giorno aperto (area Sala)
+- Giorno libero NON è fisso — lo decide il manager di settimana in settimana. Garantito ogni settimana a: Angie, Sofia, Anna, Renee. David: ogni 2-3 settimane se possibile, decide il manager
+- Albert (id:e_albert): rotazione libera, minimo 2-3 mattine a settimana (turno che inizia tra le 7 e le 12)
+- David (id:e_david): preferenza sera (inizia dalle 13 in poi). Giorno libero solo se il manager lo decide esplicitamente
+- Jessi (id:e_jessi): SEMPRE sera, area Bar. Regole per periodo:
+  * Aprile–19 maggio: solo sabato e domenica; NON disponibile dall'1 al 10 maggio
+  * 20 maggio–fine giugno: disponibile giovedì-venerdì-sabato-domenica (4 giorni), inizia dalle 18:00
+  * Luglio–20 agosto: disponibile 5 giorni a settimana, inizia dalle 18:00
+  * Orario standard: 18:00–00:00. Nei weekend può iniziare alle 16:00 o 17:00 se serve. Quando ci sono eventi serali fa chiusura fino all'01:00
+- Renee (id:e_renee): rotazione libera, giorno libero garantito. Disponibilità: qualche weekend di maggio (non tutti), da giugno disponibile 4 giorni a settimana attaccati. Pagata a ore (9€/h)
+- Sara (id:e_sara): NON è barista operativa. Può aiutare a rotazione su: preparazione linea cucina, reception, servire birre. NON assegnarle turni bar autonomi — lavora in supporto al manager
+- Se disponibilità è "no" per un giorno: NON assegnare turno quel giorno
+- Se disponibilità è "soloMat": solo turni mattina (inizio prima delle 13)
+- Se disponibilità è "solaSer": solo turni sera (inizio dalle 13 in poi)
 
 STAGIONALITÀ E ORARI DI APERTURA:
 - Aprile–fine maggio (fino al 25 maggio): aperto solo sabato e domenica, orario 07:00-20:00
@@ -1220,7 +1500,7 @@ SETTIMANA: ${fmtIt(mon)} – ${fmtIt(addDays(mon,6))}
 GIORNI APERTI (con date esatte): ${openDayNames||'nessuno'}
 ⚠️ REGOLA PRIORITÀ ASSOLUTA: devi assegnare turni a TUTTI e SOLI i giorni elencati sopra in "GIORNI APERTI". Ignora le regole stagionali di default (sab/dom in aprile ecc.) — la lista dei giorni aperti è già calcolata dall'app e include eventuali aperture extra manuali. Se un giorno è in lista → va coperto. Se non è in lista → non assegnare turni.
 ${ev?`EVENTO SETTIMANA: ${ev.name}${ev.note?' — '+ev.note:''}`:'' }
-${dayNotesStr?`NOTE GIORNALIERE (seguile con priorità assoluta):\n${dayNotesStr}`:''}
+${(()=>{const notes=openDays.map(d=>{const n=S.dayNotes[fmt(d)];if(!n)return null;const dow=d.getDay();const dn=DAYS[dow===0?6:dow-1];return `  ${dn} ${fmt(d)}: ${n}`;}).filter(Boolean).join('\n');return notes?`\n⚠️ NOTE GIORNALIERE (PRIORITÀ ASSOLUTA — rispettale prima di qualsiasi altra regola):\n${notes}`:'';})()}
 
 DIPENDENTI:
 ${empSummary}
@@ -1266,7 +1546,9 @@ function applyDraft(turni){
     if(!t.empId||!t.date||!t.type)return;
     const key=`${t.empId}_${t.date}`;
     if(t.type==='turno'&&t.start&&t.end){
-      S.draftShifts[key]={type:'turno',start:t.start,end:t.end,area:t.area||''};ok++;
+      const sh={type:'turno',start:t.start,end:t.end,area:t.area||''};
+      if(t.start2&&t.end2){sh.start2=t.start2;sh.end2=t.end2;}
+      S.draftShifts[key]=sh;ok++;
     } else if(['libero','ferie','assenza'].includes(t.type)){
       S.draftShifts[key]={type:t.type};ok++;
     }
@@ -1294,7 +1576,7 @@ async function sendAI(){
     const r=await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
       headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:3000,system:buildSystemPrompt(),messages:S.aiHistory})
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:3000,system:buildSystemPrompt(),messages:S.aiHistory})
     });
     const data=await r.json();
     const reply=data.content?.[0]?.text||'Errore nella risposta.';
