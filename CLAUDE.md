@@ -7,4 +7,4 @@
 
 Prima versione dell'app turno-manager; esistono anche varianti '-deploy' su entrambi gli account, probabili doppioni successivi.
 
-Per il quadro completo (altri progetti collegati, credenziali dove trovarle) vedi la reference accounts-map in `dev/claude-notes/references/accounts-map.md`.
+Per il quadro completo (altri progetti collegati, credenziali dove trovarle) vedi la reference accounts-map in `claude-notes/infra/references/accounts-map.md`.
